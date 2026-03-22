@@ -3,3 +3,7 @@
 
 # Executables
 bin/
+
+
+# Compose generator
+compose_generator/__pycache__/

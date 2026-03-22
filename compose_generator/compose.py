@@ -1,0 +1,42 @@
+from compose_generator.file_writer import escribir_archivo
+
+
+def generar_compose(nombre_archivo, cantidad_clientes):
+    data = construir_datos_compose(cantidad_clientes)
+    escribir_archivo(nombre_archivo, data)
+
+
+
+def construir_datos_compose(cantidad_clientes):
+    data = {
+        "name": "tp0",
+        "services": {
+            "server": {
+                "container_name": "server",
+                "image": "server:latest",
+                "entrypoint": "python3 /main.py",
+                "environment": ["PYTHONUNBUFFERED=1", "LOGGING_LEVEL=DEBUG"],
+                "networks": ["testing_net"],
+            }
+        },
+        "networks": {
+            "testing_net": {
+                "ipam": {
+                    "driver": "default",
+                    "config": [{"subnet": "172.25.125.0/24"}],
+                }
+            }
+        },
+    }
+
+    for i in range(1, cantidad_clientes + 1):
+        data["services"][f"client{i}"] = {
+            "container_name": f"client{i}",
+            "image": "client:latest",
+            "entrypoint": "/client",
+            "environment": [f"CLI_ID={i}", "CLI_LOG_LEVEL=DEBUG"],
+            "networks": ["testing_net"],
+            "depends_on": ["server"],
+        }
+
+    return data

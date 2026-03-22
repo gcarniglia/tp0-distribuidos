@@ -9,7 +9,7 @@ def generar_compose(nombre_archivo, cantidad_clientes):
 
 def construir_datos_compose(cantidad_clientes):
     data = {
-        "name": "tp0",
+        #"name": "tp0",
         "services": {
             "server": {
                 "container_name": "server",

@@ -16,7 +16,7 @@ def construir_datos_compose(cantidad_clientes):
                 "container_name": "server",
                 "image": "server:latest",
                 "entrypoint": "python3 /main.py",
-                "environment": ["PYTHONUNBUFFERED=1", "LOGGING_LEVEL=DEBUG"],
+                "environment": ["PYTHONUNBUFFERED=1"],
                 "networks": ["testing_net"],
                 "volumes": [f"{PATH_CONFIG_SERVER}:/config.ini"]
             }
@@ -36,7 +36,7 @@ def construir_datos_compose(cantidad_clientes):
             "container_name": f"client{i}",
             "image": "client:latest",
             "entrypoint": "/client",
-            "environment": [f"CLI_ID={i}", "CLI_LOG_LEVEL=DEBUG"],
+            "environment": [f"CLI_ID={i}"],
             "networks": ["testing_net"],
             "depends_on": ["server"],
             "volumes": [f"{PATH_CONFIG_CLIENTE}:/config.yaml"]

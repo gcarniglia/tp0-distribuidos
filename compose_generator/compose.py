@@ -1,3 +1,4 @@
+from compose_generator.constants import PATH_CONFIG_CLIENTE, PATH_CONFIG_SERVER
 from compose_generator.file_writer import escribir_archivo
 
 
@@ -17,6 +18,7 @@ def construir_datos_compose(cantidad_clientes):
                 "entrypoint": "python3 /main.py",
                 "environment": ["PYTHONUNBUFFERED=1", "LOGGING_LEVEL=DEBUG"],
                 "networks": ["testing_net"],
+                "volumes": [f"{PATH_CONFIG_SERVER}:/config.ini"]
             }
         },
         "networks": {
@@ -37,6 +39,7 @@ def construir_datos_compose(cantidad_clientes):
             "environment": [f"CLI_ID={i}", "CLI_LOG_LEVEL=DEBUG"],
             "networks": ["testing_net"],
             "depends_on": ["server"],
+            "volumes": [f"{PATH_CONFIG_CLIENTE}:/config.yaml"]
         }
 
     return data

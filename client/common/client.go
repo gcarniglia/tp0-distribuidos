@@ -1,8 +1,6 @@
 package common
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,7 +23,7 @@ type ClientConfig struct {
 	LoopPeriod    time.Duration
 }
 
-// Client Entity that encapsulates how
+// Client Entity
 type Client struct {
 	config ClientConfig
 }
@@ -55,6 +53,33 @@ func (c *Client) createClientSocket() (*transport.Conn, error) {
 	return conn, nil
 }
 
+func (c *Client) sendShutdownAndFinish(appClient *application.AppClient) {
+	if err := appClient.SendShutdown(); err != nil {
+		log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	}
+	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+}
+
+func (c *Client) stopIfSignaled(sigCh <-chan os.Signal, appClient *application.AppClient) bool {
+	select {
+	case <-sigCh:
+		c.sendShutdownAndFinish(appClient)
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Client) waitOrStop(sigCh <-chan os.Signal, appClient *application.AppClient) bool {
+	select {
+	case <-sigCh:
+		c.sendShutdownAndFinish(appClient)
+		return false
+	case <-time.After(c.config.LoopPeriod):
+		return true
+	}
+}
+
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
 	sigCh := make(chan os.Signal, 1)
@@ -75,50 +100,18 @@ func (c *Client) StartClientLoop() {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
-		select {
-		case <-sigCh:
-			if err := appClient.SendShutdown(); err != nil {
-				log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			}
-			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+		if c.stopIfSignaled(sigCh, appClient) {
 			return
-		default:
 		}
 
-		message := fmt.Sprintf("[CLIENT %v] Message N°%v", c.config.ID, msgID)
-		response, err := appClient.SendEcho(message)
-		if err == nil {
-			log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-				c.config.ID,
-				response,
-			)
-		} else {
-			if errors.Is(err, application.ErrShutdown) {
-				log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
-				log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-				return
-			}
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
+		if !appClient.ProcessEchoMessage(msgID, c.config.ID) {
 			return
 		}
 
 		// Wait a time between sending one message and the next one
-		select {
-		case <-sigCh:
-			if err := appClient.SendShutdown(); err != nil {
-				log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			}
-			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+		if !c.waitOrStop(sigCh, appClient) {
 			return
-		case <-time.After(c.config.LoopPeriod):
 		}
-
 	}
-	if err := appClient.SendShutdown(); err != nil {
-		log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
-	}
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	c.sendShutdownAndFinish(appClient)
 }

@@ -8,8 +8,8 @@ import (
 	"github.com/gcarniglia/tp0-distribuidos/client/common/transport"
 )
 
-const MaxPayloadLen = 8192
-
+// Modulo que implementa el Smile Protocol,
+// encargado de codificar y decodificar mensajes
 type Codec struct{}
 
 func NewCodec() *Codec {

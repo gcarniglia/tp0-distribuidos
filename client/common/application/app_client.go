@@ -3,7 +3,6 @@ package application
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/gcarniglia/tp0-distribuidos/client/common/protocol"
 	"github.com/gcarniglia/tp0-distribuidos/client/common/transport"
@@ -58,31 +57,6 @@ func (a *AppClient) SendEcho(text string) (string, error) {
 	return string(response.Payload), nil
 }
 
-func (a *AppClient) SendBet(bet Bet) error {
-	payload := fmt.Sprintf("agency_id=%s\nnombre=%s\napellido=%s\ndocumento=%s\nnacimiento=%s\nnumero=%s",
-		bet.AgencyID, bet.Nombre, bet.Apellido, bet.Documento, bet.Nacimiento, bet.Numero)
-	response, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgBET, Payload: []byte(payload)})
-	if err != nil {
-		return err
-	}
-	if response.Type != protocol.MsgOK {
-		return fmt.Errorf("unexpected response type: %s", response.Type)
-	}
-	return nil
-}
-
-func (a *AppClient) SendBatch(agencyID string, csvLines []string) error {
-	payload := fmt.Sprintf("agency_id=%s\ncount=%d\ndata:\n%s", agencyID, len(csvLines), strings.Join(csvLines, "\n"))
-	response, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgBATCH, Payload: []byte(payload)})
-	if err != nil {
-		return err
-	}
-	if response.Type != protocol.MsgOK {
-		return fmt.Errorf("unexpected response type: %s", response.Type)
-	}
-	return nil
-}
-
 func (a *AppClient) NotifyEndAgency(agencyID string) error {
 	payload := fmt.Sprintf("agency_id=%s", agencyID)
 	response, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgENDAgency, Payload: []byte(payload)})
@@ -93,40 +67,6 @@ func (a *AppClient) NotifyEndAgency(agencyID string) error {
 		return fmt.Errorf("unexpected response type: %s", response.Type)
 	}
 	return nil
-}
-
-func (a *AppClient) RequestWinners(agencyID string) ([]string, error) {
-	payload := fmt.Sprintf("agency_id=%s", agencyID)
-	ack, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgGetWinners, Payload: []byte(payload)})
-	if err != nil {
-		return nil, err
-	}
-	if ack.Type != protocol.MsgOK {
-		return nil, fmt.Errorf("unexpected ack response type: %s", ack.Type)
-	}
-	winnersMsg, err := a.codec.DecodeFrom(a.conn)
-	if err != nil {
-		return nil, err
-	}
-	if winnersMsg.Type == protocol.MsgShutdown {
-		return nil, ErrShutdown
-	}
-	if winnersMsg.Type != protocol.MsgWinners {
-		return nil, fmt.Errorf("unexpected winners response type: %s", winnersMsg.Type)
-	}
-	lines := strings.Split(string(winnersMsg.Payload), "\n")
-	winners := make([]string, 0)
-	inData := false
-	for _, line := range lines {
-		if line == "data:" {
-			inData = true
-			continue
-		}
-		if inData && strings.TrimSpace(line) != "" {
-			winners = append(winners, strings.TrimSpace(line))
-		}
-	}
-	return winners, nil
 }
 
 func (a *AppClient) SendShutdown() error {

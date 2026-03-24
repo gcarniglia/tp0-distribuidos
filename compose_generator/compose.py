@@ -1,3 +1,5 @@
+from email.mime import image
+
 from compose_generator.constants import PATH_CONFIG_CLIENTE, PATH_CONFIG_SERVER
 from compose_generator.file_writer import escribir_archivo
 
@@ -29,6 +31,11 @@ def construir_datos_compose(cantidad_clientes):
                 }
             }
         },
+          "tester": {
+            "image": "busybox:latest",
+            "networks": ["testing_net"],
+            "entrypoint": "/bin/sh"
+          }
     }
 
     for i in range(1, cantidad_clientes + 1):

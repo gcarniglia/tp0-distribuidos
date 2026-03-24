@@ -1,4 +1,4 @@
-FROM python:3.9.7-slim
+FROM python:3.10.14-slim
 COPY server/main.py /main.py
 COPY server/common /common
 COPY server/tests /tests

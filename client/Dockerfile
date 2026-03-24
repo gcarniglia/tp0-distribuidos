@@ -14,7 +14,7 @@ COPY vendor /build/vendor
 COPY client/main.go /build/client/main.go
 COPY client/common /build/client/common
 # CGO_ENABLED must be disabled to run go binary in Alpine
-RUN CGO_ENABLED=0 GOOS=linux go build -mod vendor -o bin/client github.com/7574-sistemas-distribuidos/docker-compose-init/client
+RUN CGO_ENABLED=0 GOOS=linux go build -mod vendor -o bin/client github.com/gcarniglia/tp0-distribuidos/client
 
 
 FROM busybox:latest

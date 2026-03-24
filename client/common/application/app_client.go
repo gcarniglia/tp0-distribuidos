@@ -1,6 +1,7 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,6 +23,8 @@ type AppClient struct {
 	codec *protocol.Codec
 }
 
+var ErrShutdown = errors.New("shutdown received")
+
 func NewAppClient(conn *transport.Conn, codec *protocol.Codec) *AppClient {
 	return &AppClient{conn: conn, codec: codec}
 }
@@ -34,7 +37,14 @@ func (a *AppClient) SendAndReceive(msg protocol.Message) (protocol.Message, erro
 	if err := a.conn.WriteAll(frame); err != nil {
 		return protocol.Message{}, err
 	}
-	return a.codec.DecodeFrom(a.conn)
+	response, err := a.codec.DecodeFrom(a.conn)
+	if err != nil {
+		return protocol.Message{}, err
+	}
+	if response.Type == protocol.MsgShutdown {
+		return response, ErrShutdown
+	}
+	return response, nil
 }
 
 func (a *AppClient) SendEcho(text string) (string, error) {
@@ -97,6 +107,9 @@ func (a *AppClient) RequestWinners(agencyID string) ([]string, error) {
 	winnersMsg, err := a.codec.DecodeFrom(a.conn)
 	if err != nil {
 		return nil, err
+	}
+	if winnersMsg.Type == protocol.MsgShutdown {
+		return nil, ErrShutdown
 	}
 	if winnersMsg.Type != protocol.MsgWinners {
 		return nil, fmt.Errorf("unexpected winners response type: %s", winnersMsg.Type)

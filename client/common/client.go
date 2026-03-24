@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -76,7 +77,9 @@ func (c *Client) StartClientLoop() {
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-sigCh:
-			_ = appClient.SendShutdown()
+			if err := appClient.SendShutdown(); err != nil {
+				log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			}
 			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 			return
 		default:
@@ -90,6 +93,11 @@ func (c *Client) StartClientLoop() {
 				response,
 			)
 		} else {
+			if errors.Is(err, application.ErrShutdown) {
+				log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
+				log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+				return
+			}
 			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
 				c.config.ID,
 				err,
@@ -100,12 +108,17 @@ func (c *Client) StartClientLoop() {
 		// Wait a time between sending one message and the next one
 		select {
 		case <-sigCh:
-			_ = appClient.SendShutdown()
+			if err := appClient.SendShutdown(); err != nil {
+				log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			}
 			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 			return
 		case <-time.After(c.config.LoopPeriod):
 		}
 
+	}
+	if err := appClient.SendShutdown(); err != nil {
+		log.Errorf("action: send_shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	}
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }

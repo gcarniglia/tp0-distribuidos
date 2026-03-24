@@ -1,6 +1,5 @@
 import logging
 import signal
-import socket
 import threading
 
 from common.application.app_server import AppServer
@@ -12,7 +11,6 @@ from common.transport.tcp_server import TcpServer
 class Server:
     def __init__(self, port, listen_backlog):
         self._tcp_server = TcpServer(port, listen_backlog)
-        self._tcp_server.set_timeout(1.0)
         self._codec = Codec()
         self._app = AppServer()
         self._shutdown_requested = threading.Event()
@@ -35,6 +33,7 @@ class Server:
         _ = signum
         _ = frame
         self._shutdown_requested.set()
+        self._tcp_server.close()
 
     def __spawn_connection_worker(self, connection):
         with self._connections_lock:
@@ -47,11 +46,9 @@ class Server:
 
     def __handle_client_connection(self, connection):
         try:
-            while not self._shutdown_requested.is_set():
+            while True:
                 try:
                     message = self._codec.decode_from(connection)
-                except socket.timeout:
-                    continue
                 except EOFError:
                     break
                 except PayloadTooLargeError as exc:
@@ -68,6 +65,10 @@ class Server:
                     self.__safe_payload_preview(message.payload),
                 )
 
+                if message.type == MSG_SHUTDOWN:
+                    logging.info("action: shutdown_received | result: success | ip: %s", connection.peer_ip())
+                    break
+
                 responses = self._app.handle_message(connection, message)
                 for target_connection, response_message in responses:
                     self.__send_message(target_connection, response_message)
@@ -80,11 +81,8 @@ class Server:
         logging.info('action: accept_connections | result: in_progress')
         try:
             conn, addr = self._tcp_server.accept()
-            conn.settimeout(1.0)
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
             return conn
-        except socket.timeout:
-            return None
         except OSError as exc:
             if not self._shutdown_requested.is_set():
                 logging.error(f'action: accept_connections | result: fail | error: {exc}')

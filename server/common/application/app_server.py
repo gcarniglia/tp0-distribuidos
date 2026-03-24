@@ -1,5 +1,5 @@
 from common.application.state import ServerState
-from server.common.protocol.smile_message import (
+from common.protocol.smile_message import (
     SmileMessage, SmileType
 )
 

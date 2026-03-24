@@ -1,6 +1,8 @@
 # Mac
 **.DS_Store
 
+.github/
+
 # Executables
 bin/
 

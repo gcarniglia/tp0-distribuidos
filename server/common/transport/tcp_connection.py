@@ -1,28 +1,33 @@
 import socket
 
-
+'''Modula que representa una conexión TCP con un cliente'''
 class TcpConnection:
     def __init__(self, sock: socket.socket):
-        self._sock = sock
+        self._socket = sock
 
+    '''Envía todos los bytes del mensaje a través de la conexión TCP'''
     def send_all(self, data: bytes) -> None:
-        self._sock.sendall(data)
+        self._socket.sendall(data)
 
+    '''Lee exactamente n bytes del mensaje a través de la conexión TCP
+    Se usa para la lectura del payload, luego de haber leído el header'''
     def read_exactly(self, n: int) -> bytes:
         chunks = []
         remaining = n
         while remaining > 0:
-            chunk = self._sock.recv(remaining)
+            chunk = self._socket.recv(remaining)
             if not chunk:
                 raise EOFError("unexpected EOF while reading payload")
             chunks.append(chunk)
             remaining -= len(chunk)
         return b"".join(chunks)
 
+    '''Lee byte a byte hasta encontrar el terminador de header del Smile Protocol
+    ":(\n", retornando el header completo incluyendo el terminador'''
     def read_until_header_terminator(self) -> bytes:
         buffer = bytearray()
         while True:
-            chunk = self._sock.recv(1)
+            chunk = self._socket.recv(1)
             if not chunk:
                 raise EOFError("unexpected EOF while reading header")
             buffer.extend(chunk)
@@ -31,11 +36,13 @@ class TcpConnection:
             if len(buffer) > 4096:
                 raise ValueError("header too large")
 
-    def peer_ip(self) -> str:
-        return self._sock.getpeername()[0]
 
+    def peer_ip(self) -> str:
+        return self._socket.getpeername()[0]
+
+    ''' Cierra la conexión TCP con el cliente'''
     def close(self) -> None:
-        self._sock.close()
+        self._socket.close()
 
     def settimeout(self, value: float) -> None:
-        self._sock.settimeout(value)
+        self._socket.settimeout(value)

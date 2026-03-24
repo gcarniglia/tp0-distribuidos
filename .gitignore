@@ -7,5 +7,7 @@
 bin/
 
 
-# Compose generator
+# Pycache
 compose_generator/__pycache__/
+server/__pycache__/
+server/tests/__pycache__/

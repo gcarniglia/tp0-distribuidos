@@ -21,6 +21,11 @@ def construir_datos_compose(cantidad_clientes):
                 "environment": ["PYTHONUNBUFFERED=1"],
                 "networks": ["testing_net"],
                 "volumes": [f"{PATH_CONFIG_SERVER}:/config.ini"]
+            },
+            "tester": {
+                "image": "busybox:latest",
+                "networks": ["testing_net"],
+                "entrypoint": "/bin/sh"
             }
         },
         "networks": {
@@ -31,11 +36,6 @@ def construir_datos_compose(cantidad_clientes):
                 }
             }
         },
-          "tester": {
-            "image": "busybox:latest",
-            "networks": ["testing_net"],
-            "entrypoint": "/bin/sh"
-          }
     }
 
     for i in range(1, cantidad_clientes + 1):

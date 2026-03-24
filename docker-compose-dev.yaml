@@ -23,14 +23,14 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+  tester:
+    image: busybox:latest
+    networks:
+      - testing_net
+    entrypoint: ["/bin/sh"]
 networks:
   testing_net:
     ipam:
       driver: default
       config:
         - subnet: 172.25.125.0/24
-tester:
-    image: busybox:latest
-    networks:
-      - testing_net
-    entrypoint: ["/bin/sh"]

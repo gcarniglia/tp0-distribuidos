@@ -10,13 +10,13 @@ import (
 
 // Modulo que implementa el Smile Protocol,
 // encargado de codificar y decodificar mensajes
-type Codec struct{}
+type SmileProtocol struct{}
 
-func NewCodec() *Codec {
-	return &Codec{}
+func NewCodec() *SmileProtocol {
+	return &SmileProtocol{}
 }
 
-func (c *Codec) Encode(msg Message) ([]byte, error) {
+func (c *SmileProtocol) Encode(msg SmileMessage) ([]byte, error) {
 	if len(msg.Payload) > MaxPayloadLen {
 		return nil, fmt.Errorf("payload too large: %d", len(msg.Payload))
 	}
@@ -27,35 +27,35 @@ func (c *Codec) Encode(msg Message) ([]byte, error) {
 	return buffer, nil
 }
 
-func (c *Codec) DecodeFrom(conn *transport.Conn) (Message, error) {
+func (c *SmileProtocol) DecodeFrom(conn *transport.Conn) (SmileMessage, error) {
 	headerBytes, err := conn.ReadUntilHeaderTerminator()
 	if err != nil {
-		return Message{}, err
+		return SmileMessage{}, err
 	}
 	header := string(headerBytes)
 	if !strings.HasPrefix(header, ":)") || !strings.HasSuffix(header, ":(\n") {
-		return Message{}, fmt.Errorf("invalid frame header")
+		return SmileMessage{}, fmt.Errorf("invalid frame header")
 	}
 
 	headerBody := strings.TrimSuffix(strings.TrimPrefix(header, ":)"), ":(\n")
 	parts := strings.Split(headerBody, " ")
 	if len(parts) != 2 {
-		return Message{}, fmt.Errorf("invalid frame header body")
+		return SmileMessage{}, fmt.Errorf("invalid frame header body")
 	}
 
 	msgType := parts[0]
 	payloadLen, err := strconv.Atoi(parts[1])
 	if err != nil || payloadLen < 0 {
-		return Message{}, fmt.Errorf("invalid payload length")
+		return SmileMessage{}, fmt.Errorf("invalid payload length")
 	}
 	if payloadLen > MaxPayloadLen {
-		return Message{}, fmt.Errorf("payload length exceeds max allowed")
+		return SmileMessage{}, fmt.Errorf("payload length exceeds max allowed")
 	}
 
 	payload, err := conn.ReadExactly(payloadLen)
 	if err != nil {
-		return Message{}, err
+		return SmileMessage{}, err
 	}
 
-	return Message{Type: MessageType(msgType), Payload: payload}, nil
+	return SmileMessage{Type: SmileType(msgType), Payload: payload}, nil
 }

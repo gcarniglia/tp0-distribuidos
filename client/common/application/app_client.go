@@ -19,26 +19,26 @@ type Bet struct {
 
 type AppClient struct {
 	conn  *transport.Conn
-	codec *protocol.Codec
+	codec *protocol.SmileProtocol
 }
 
 var ErrShutdown = errors.New("shutdown received")
 
-func NewAppClient(conn *transport.Conn, codec *protocol.Codec) *AppClient {
+func NewAppClient(conn *transport.Conn, codec *protocol.SmileProtocol) *AppClient {
 	return &AppClient{conn: conn, codec: codec}
 }
 
-func (a *AppClient) SendAndReceive(msg protocol.Message) (protocol.Message, error) {
+func (a *AppClient) SendAndReceive(msg protocol.SmileMessage) (protocol.SmileMessage, error) {
 	frame, err := a.codec.Encode(msg)
 	if err != nil {
-		return protocol.Message{}, err
+		return protocol.SmileMessage{}, err
 	}
 	if err := a.conn.WriteAll(frame); err != nil {
-		return protocol.Message{}, err
+		return protocol.SmileMessage{}, err
 	}
 	response, err := a.codec.DecodeFrom(a.conn)
 	if err != nil {
-		return protocol.Message{}, err
+		return protocol.SmileMessage{}, err
 	}
 	if response.Type == protocol.MsgShutdown {
 		return response, ErrShutdown
@@ -47,7 +47,7 @@ func (a *AppClient) SendAndReceive(msg protocol.Message) (protocol.Message, erro
 }
 
 func (a *AppClient) SendEcho(text string) (string, error) {
-	response, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgEcho, Payload: []byte(text)})
+	response, err := a.SendAndReceive(protocol.SmileMessage{Type: protocol.MsgEcho, Payload: []byte(text)})
 	if err != nil {
 		return "", err
 	}
@@ -57,20 +57,8 @@ func (a *AppClient) SendEcho(text string) (string, error) {
 	return string(response.Payload), nil
 }
 
-func (a *AppClient) NotifyEndAgency(agencyID string) error {
-	payload := fmt.Sprintf("agency_id=%s", agencyID)
-	response, err := a.SendAndReceive(protocol.Message{Type: protocol.MsgENDAgency, Payload: []byte(payload)})
-	if err != nil {
-		return err
-	}
-	if response.Type != protocol.MsgOK {
-		return fmt.Errorf("unexpected response type: %s", response.Type)
-	}
-	return nil
-}
-
 func (a *AppClient) SendShutdown() error {
-	frame, err := a.codec.Encode(protocol.Message{Type: protocol.MsgShutdown, Payload: []byte{}})
+	frame, err := a.codec.Encode(protocol.SmileMessage{Type: protocol.MsgShutdown, Payload: []byte{}})
 	if err != nil {
 		return err
 	}

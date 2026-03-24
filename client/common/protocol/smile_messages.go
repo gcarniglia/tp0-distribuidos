@@ -1,22 +1,22 @@
 package protocol
 
-type MessageType string
+type SmileType string
 
 // Definición de los tipos de mensaje utilizados en el Smile Protocol
 const (
-	MsgBET        MessageType = "BET"
-	MsgBATCH      MessageType = "BATCH"
-	MsgENDAgency  MessageType = "END_AGENCY"
-	MsgGetWinners MessageType = "GET_WINNERS"
-	MsgWinners    MessageType = "WINNERS"
-	MsgOK         MessageType = "OK"
-	MsgError      MessageType = "ERROR"
-	MsgShutdown   MessageType = "SHUTDOWN"
-	MsgEcho       MessageType = "ECHO"
+	MsgBET        SmileType = "BET"
+	MsgBATCH      SmileType = "BATCH"
+	MsgENDAgency  SmileType = "END_AGENCY"
+	MsgGetWinners SmileType = "GET_WINNERS"
+	MsgWinners    SmileType = "WINNERS"
+	MsgOK         SmileType = "OK"
+	MsgError      SmileType = "ERROR"
+	MsgShutdown   SmileType = "SHUTDOWN"
+	MsgEcho       SmileType = "ECHO"
 )
 
 // Definición de la estructura de mensaje utilizada en el Smile Protocol
-type Message struct {
-	Type    MessageType
+type SmileMessage struct {
+	Type    SmileType
 	Payload []byte
 }

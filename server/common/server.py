@@ -5,7 +5,7 @@ import threading
 from common.application.app_server import AppServer
 from common.protocol.smile_protocol import SmileProtocol
 from common.protocol.smile_errors import SmileError, PayloadTooLargeError
-from server.common.protocol.smile_message import SmileMessage, SmileType
+from .protocol.smile_message import SmileMessage, SmileType
 from common.transport.tcp_server import TcpServer
 
 

@@ -1,6 +1,6 @@
-from server.common.protocol.smile_message import SmileMessage, SmileType
-from server.common.protocol.constants import MAX_PAYLOAD_LEN
-from server.common.protocol.smile_errors import SmileError, PayloadTooLargeError
+from .smile_message import SmileMessage, SmileType
+from .constants import MAX_PAYLOAD_LEN
+from .smile_errors import SmileError, PayloadTooLargeError
 
 
 

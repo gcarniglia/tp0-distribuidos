@@ -12,6 +12,6 @@ def validate_parameters(argv):
         print("El nombre del archivo debe terminar con .yaml")
         exit(2)
 
-    if not cantidad_clientes.isdigit() or int(cantidad_clientes) <= 0:
+    if not cantidad_clientes.isdigit() or int(cantidad_clientes) < 0:
         print("La cantidad de clientes debe ser un número entero positivo")
         exit(2)

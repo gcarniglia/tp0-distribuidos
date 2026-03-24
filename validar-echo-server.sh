@@ -1,8 +1,8 @@
 #!/bin/bash
 
-MSG="mensaje_prueba_echo"
+MSG="hola mundo"
 
-RESPONSE=$(docker compose run --rm -T tester sh -c "echo '$MSG' | nc server 12345 2>/dev/null" | tr -d '\r\n')
+RESPONSE=$(docker compose -f docker-compose-dev.yaml run --rm -T tester sh -c "echo '$MSG' | nc server 12345 2>/dev/null" | tr -d '\r\n')
 
 if [ "$RESPONSE" = "$MSG" ]; then
   echo "action: test_echo_server | result: success"

@@ -26,6 +26,8 @@ El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es O
 batch_count_mismatch
 ```
 
+El acceso al archivo resultante se realiza a traves de la variable
+
 Resumen de la implementación realizada:
 
 - El cliente lee apuestas desde su archivo `/.data/agency-{N}.csv`, arma lotes según `batch.maxAmount` y envía payload textual con `agency_id`, `count` y sección `data:` usando Smile Protocol (`TYPE=BATCH`).

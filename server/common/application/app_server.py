@@ -1,6 +1,6 @@
 import logging
+import threading
 
-from common.application.state import ServerState
 from common.protocol.smile_message import (
     SmileMessage, SmileType
 )
@@ -8,8 +8,8 @@ from common.utils import Bet, store_bets
 
 
 class AppServer:
-    def __init__(self, state: ServerState | None = None):
-        self._state = state or ServerState()
+    def __init__(self):
+        self._storage_lock = threading.Lock()
 
     def handle_message(self, connection, message: SmileMessage):
         if message.type == SmileType.ECHO:
@@ -17,7 +17,8 @@ class AppServer:
         if message.type == SmileType.BET:
             try:
                 bet = self._decode_bet_payload(message.payload)
-                store_bets([bet])
+                with self._storage_lock:
+                    store_bets([bet])
                 logging.info(
                     "action: apuesta_almacenada | result: success | dni: %s | numero: %s",
                     bet.document,
@@ -30,7 +31,8 @@ class AppServer:
             bet_count = self._extract_batch_count(message.payload)
             try:
                 bets = self._decode_batch_payload(message.payload)
-                store_bets(bets)
+                with self._storage_lock:
+                    store_bets(bets)
                 logging.info(
                     "action: apuesta_recibida | result: success | cantidad: %s",
                     len(bets),

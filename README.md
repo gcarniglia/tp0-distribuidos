@@ -26,7 +26,7 @@ El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es O
 batch_count_mismatch
 ```
 
-El acceso al archivo resultante se realiza a traves de la variable
+El acceso al archivo resultante (en `store_bets()`) se realiza a traves de la variable `self._storage_lock` de la capa de aplicación del servidor.
 
 Resumen de la implementación realizada:
 

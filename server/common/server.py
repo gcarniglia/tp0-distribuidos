@@ -7,13 +7,13 @@ from common.protocol.smile_protocol import SmileProtocol
 from common.protocol.smile_errors import SmileError, PayloadTooLargeError
 from .protocol.smile_message import SmileMessage, SmileType
 from common.transport.tcp_server import TcpServer
-
+from common.application.state import ServerState
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, total_agencies=5):
         self._tcp_server = TcpServer(port, listen_backlog)
         self._codec = SmileProtocol()
-        self._app = AppServer()
+        self._app = AppServer(ServerState(total_agencies=total_agencies))
         self._shutdown_requested = threading.Event()
         self._connections_lock = threading.Lock()
         self._active_connections = set()

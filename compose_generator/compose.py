@@ -16,7 +16,10 @@ def construir_datos_compose(cantidad_clientes):
                 "container_name": "server",
                 "image": "server:latest",
                 "entrypoint": "python3 /main.py",
-                "environment": ["PYTHONUNBUFFERED=1"],
+                "environment": [
+                    "PYTHONUNBUFFERED=1",
+                    f"SERVER_TOTAL_AGENCIES={cantidad_clientes}",
+                ],
                 "networks": ["testing_net"],
                 "volumes": [f"{PATH_CONFIG_SERVER}:/config.ini"]
             },

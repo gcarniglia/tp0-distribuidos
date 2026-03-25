@@ -1,7 +1,33 @@
 
-'''Estado global del servidor. 
+import threading
+
+
+'''Estado global del servidor.
 Se puede acceder a este estado desde cualquier parte del código'''
 class ServerState:
-    def __init__(self):
+    def __init__(self, total_agencies: int = 5):
         self.shutdown_requested = False
         self.graceful_shutdown_in_progress = False
+        self._total_agencies = total_agencies
+        self._ended_agencies = set()
+        self._draw_completed = False
+        self._lock = threading.Lock()
+        self._draw_condition = threading.Condition(self._lock)
+
+    def mark_agency_ended(self, agency_id: int) -> bool:
+        with self._draw_condition:
+            self._ended_agencies.add(agency_id)
+            if not self._draw_completed and len(self._ended_agencies) >= self._total_agencies:
+                self._draw_completed = True
+                self._draw_condition.notify_all()
+                return True
+            return False
+
+    def wait_for_draw(self):
+        with self._draw_condition:
+            while not self._draw_completed:
+                self._draw_condition.wait()
+
+    def is_draw_completed(self) -> bool:
+        with self._lock:
+            return self._draw_completed

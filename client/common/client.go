@@ -184,5 +184,39 @@ func (c *Client) StartClientLoop() {
 		}
 	}
 
+	if c.stopIfSignaled(sigCh, appClient) {
+		return
+	}
+
+	if err := appClient.SendEndAgency(c.config.ID); err != nil {
+		if errors.Is(err, application.ErrShutdown) {
+			log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
+			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+			return
+		}
+		log.Errorf("action: agencia_finalizada | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	if c.stopIfSignaled(sigCh, appClient) {
+		return
+	}
+
+	winnersCount, err := appClient.GetWinnersCount(c.config.ID)
+	if err != nil {
+		if errors.Is(err, application.ErrShutdown) {
+			log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
+			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+			return
+		}
+		log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	log.Infof(
+		"action: consulta_ganadores | result: success | cant_ganadores: %v",
+		winnersCount,
+	)
+
 	c.sendShutdownAndFinish(appClient)
 }

@@ -4,7 +4,7 @@ from common.application.state import ServerState
 from common.protocol.smile_message import (
     SmileMessage, SmileType
 )
-from common.utils import Bet, store_bets
+from common.utils import Bet, has_won, load_bets, store_bets
 
 
 class AppServer:
@@ -43,9 +43,23 @@ class AppServer:
                 )
                 return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))]
         if message.type == SmileType.END_AGENCY:
-            return []
+            try:
+                agency_id = self._decode_agency_id_payload(message.payload)
+                draw_completed = self._state.mark_agency_ended(agency_id)
+                if draw_completed:
+                    logging.info("action: sorteo | result: success")
+                return self.ok(connection, b"")
+            except ValueError as exc:
+                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))]
         if message.type == SmileType.GET_WINNERS:
-            return []
+            try:
+                agency_id = self._decode_agency_id_payload(message.payload)
+                self._state.wait_for_draw()
+                winners = self._agency_winner_documents(agency_id)
+                payload = self._encode_winners_payload(agency_id, winners)
+                return [(connection, SmileMessage(SmileType.WINNERS, payload))]
+            except ValueError as exc:
+                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))]
         if message.type == SmileType.SHUTDOWN:
             return []
         return [(connection, SmileMessage(SmileType.ERROR, b"unknown_message_type"))]
@@ -165,3 +179,41 @@ class AppServer:
                 raise ValueError("invalid_batch_bet_values") from exc
 
         return bets
+
+    @staticmethod
+    def _decode_agency_id_payload(payload: bytes) -> int:
+        try:
+            text = payload.decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise ValueError("invalid_agency_payload_encoding") from exc
+
+        if not text.startswith("agency_id="):
+            raise ValueError("missing_agency_field_agency_id")
+
+        agency_id_text = text.split("=", 1)[1].strip()
+        if agency_id_text == "":
+            raise ValueError("missing_agency_field_agency_id")
+
+        try:
+            agency_id = int(agency_id_text)
+        except ValueError as exc:
+            raise ValueError("invalid_agency_id") from exc
+
+        if agency_id <= 0:
+            raise ValueError("invalid_agency_id")
+
+        return agency_id
+
+    @staticmethod
+    def _encode_winners_payload(agency_id: int, winners: list[str]) -> bytes:
+        lines = [f"agency_id={agency_id}", f"count={len(winners)}", "data:"]
+        lines.extend(winners)
+        return "\n".join(lines).encode("utf-8")
+
+    @staticmethod
+    def _agency_winner_documents(agency_id: int) -> list[str]:
+        winners = []
+        for bet in load_bets():
+            if bet.agency == agency_id and has_won(bet):
+                winners.append(bet.document)
+        return winners

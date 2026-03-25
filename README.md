@@ -1,63 +1,64 @@
-# Ejercicio 6 — Procesamiento por lotes (BATCH)
+# Ejercicio 8 — Concurrencia en servidor
 
-Como se planteó toda la estructura de capas de transporte/protocolo/aplicación en el punto anterior, aquí la solución es mas a nivel aplicación.
+Para el ej8 se extendió el servidor para aceptar y procesar conexiones en paralelo, manteniendo consistencia de estado y persistencia compartida.
+Esto ya existía desarrollado en el ejercicio 7. El concepto se mantuvo presente a lo
+largo de varios ejercicios. Pero fue durante el desarrollo de éste que se encontraron
+algunas consideraciones que, si bien no eran relevantes para las consignas de ejercicios
+previos (porque no lo pedían), sí es importante en este:
 
-Se implementó el flujo de apuestas por lotes `BATCH`. El mensaje del tipo `BATCH` enviado por el cliente tiene la estructura siguiente:
+- _storage_lock es un Lock de la capa de aplicacion que se utiliza para la escritura concurrente en el archivo resultante (ejecutando store_bets sin incurrir en condiciones de carrera)
+- ServerState es una clase de la capa de aplicación del servidor que se utiliza para manejar la logica del negocio de las agencias de lotería.
 
-```text
-:)BATCH 1116:(
-agency_id=1
-count=25
-data:
-Sebastian Alejandro,Loreto,26486922,1985-08-08,8130
-Dylan Ezequiel,Sberna,27155519,1994-01-07,6843
-...
-```
+## Diseño implementado
 
-El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es OK o no el batch de origen:
+### Modelo de concurrencia
 
-```text
-:)OK 0:(
+- Se utiliza un modelo **thread-per-connection**: por cada conexión aceptada se crea un hilo worker que procesa mensajes de ese cliente en loop.
+- El hilo principal queda liberado para seguir aceptando nuevas conexiones concurrentemente.
 
-```
+### Estado compartido y sincronización
 
-```text
-:)ERROR 20:(
-batch_count_mismatch
-```
+- Estado de sorteo (fin de agencias y habilitación de consulta de ganadores):
+  - Se mantiene en `ServerState` con `Lock + Condition`.
+  - `END_AGENCY` marca agencia finalizada.
+  - `GET_WINNERS` espera con `wait_for_draw()` hasta que todas las agencias hayan terminado.
+- Persistencia compartida de apuestas (`bets.csv`):
+  - `store_bets(...)` y `load_bets()` no son thread-safe por sí solas.
+  - Se protege su acceso con lock en `AppServer` para evitar condiciones de carrera entre hilos.
 
-Resumen de la implementación realizada:
+### Shutdown graceful en concurrencia
 
-- El cliente lee apuestas desde su archivo `/.data/agency-{N}.csv`, arma lotes según `batch.maxAmount` y envía payload textual con `agency_id`, `count` y sección `data:` usando Smile Protocol (`TYPE=BATCH`).
-- El servidor parsea y valida el batch completo; si todas las apuestas son válidas persiste con `store_bets(...)` y responde `OK`; si alguna falla responde `ERROR` y no persiste parcial.
-- Logs esperados:
-  - Servidor éxito: `action: apuesta_recibida | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}`
-  - Servidor error: `action: apuesta_recibida | result: fail | cantidad: ${CANTIDAD_DE_APUESTAS}`
+- El servidor usa `_shutdown_requested` (`threading.Event`) para coordinar el ciclo de vida entre hilos.
+- Al recibir `SIGTERM`:
+  1. se marca shutdown y se detiene `accept()`;
+  2. se envía mensaje `SHUTDOWN` a conexiones activas;
+  3. se cierran sockets y se espera finalización de workers.
+- Si falla el envío a un cliente, se loguea el error y se continúa con el cierre del resto.
 
-Archivos relevantes:
-- Cliente: [client/main.go](client/main.go), [client/common/client.go](client/common/client.go) y [client/common/application/batch_operation.go](client/common/application/batch_operation.go)
-- Servidor: [server/common/application/app_server.py](server/common/application/app_server.py)
-- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta `CLI_ID` y monta `./.data/agency-N.csv` en `/.data/agency-N.csv`)
+## Archivos relevantes de ej8
 
-Ejecución:
+- Servidor concurrente / lifecycle: [server/common/server.py](server/common/server.py)
+- Estado de aplicación sincronizado: [server/common/application/state.py](server/common/application/state.py)
+- Lógica de aplicación y lock de persistencia: [server/common/application/app_server.py](server/common/application/app_server.py)
 
-1. Regenerar compose con 5 agencias:
+## Validación sugerida
+
+1. Regenerar compose y levantar entorno:
 
 ```bash
 ./generar-compose.sh docker-compose-dev.yaml 5
-```
-
-2. Reconstruir imágenes y levantar el compose:
-
-```bash
 make docker-image
 make docker-compose-up
 ```
 
-3. Ver los logs y buscar las entradas `apuesta_recibida`:
+2. Verificar en logs que el servidor acepta conexiones de múltiples clientes y procesa mensajes intercalados:
 
 ```bash
 make docker-compose-logs
 ```
 
-Nota: Aunque específicamente no se aclara, considero que el dataset.zip se encuentra ya descomprimido en `./.data/*.csv`, con cada csv de cada agencia allí. 
+3. Detener con shutdown de compose y verificar cierre ordenado:
+
+```bash
+make docker-compose-down
+```

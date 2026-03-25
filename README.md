@@ -37,7 +37,7 @@ Resumen de la implementación realizada:
 Archivos relevantes:
 - Cliente: [client/main.go](client/main.go), [client/common/client.go](client/common/client.go) y [client/common/application/batch_operation.go](client/common/application/batch_operation.go)
 - Servidor: [server/common/application/app_server.py](server/common/application/app_server.py)
-- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta `CLI_ID` y monta `./.data/dataset/agency-N.csv` en `/.data/agency-N.csv`)
+- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta `CLI_ID` y monta `./.data/agency-N.csv` en `/.data/agency-N.csv`)
 
 Ejecución:
 
@@ -59,3 +59,5 @@ make docker-compose-up
 ```bash
 make docker-compose-logs
 ```
+
+Nota: Aunque específicamente no se aclara, considero que el dataset.zip se encuentra ya descomprimido en `./.data/*.csv`, con cada csv de cada agencia allí. 

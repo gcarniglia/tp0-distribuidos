@@ -20,6 +20,79 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=1
+      - NOMBRE=Santiago Lionel
+      - APELLIDO=Lorca
+      - DOCUMENTO=30904465
+      - NACIMIENTO=1999-03-17
+      - NUMERO=7574
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  client2:
+    container_name: client2
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=2
+      - NOMBRE=Martina
+      - APELLIDO=Perez
+      - DOCUMENTO=30111222
+      - NACIMIENTO=1998-10-04
+      - NUMERO=1234
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  client3:
+    container_name: client3
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=3
+      - NOMBRE=Juan
+      - APELLIDO=Gomez
+      - DOCUMENTO=28999888
+      - NACIMIENTO=1995-05-29
+      - NUMERO=4321
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  client4:
+    container_name: client4
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=4
+      - NOMBRE=Lucia
+      - APELLIDO=Fernandez
+      - DOCUMENTO=31888777
+      - NACIMIENTO=2000-01-15
+      - NUMERO=1111
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
+  client5:
+    container_name: client5
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=5
+      - NOMBRE=Tomas
+      - APELLIDO=Diaz
+      - DOCUMENTO=33444555
+      - NACIMIENTO=1997-12-09
+      - NUMERO=9999
     networks:
       - testing_net
     depends_on:

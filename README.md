@@ -59,3 +59,16 @@ make docker-compose-up
 ```bash
 make docker-compose-logs
 ```
+4. Para visualizar el archivo resultante bets.csv se puede hacerlo ejecutando:
+
+```bash
+docker exec -it server sh
+```
+
+Y luego dentro del contenedor ejecutar:
+
+```bash
+cat bets.csv
+```
+
+Para visualizar la ejecución de las apuestas de las 5 agencias de lotería procesadas.

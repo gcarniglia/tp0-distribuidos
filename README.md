@@ -1,96 +1,61 @@
-# Ejercicio 4 — Cierre Graceful
+# Ejercicio 5 — Apuestas (BET)
 
-## Objetivo
+Como se planteó toda la estructura de capas de transporte/protocolo/aplicación en el punto anterior, aquí la solución es mas a nivel aplicación.
 
-Implementar cierre ordenado ante `SIGTERM` y preservar el cierre correcto de recursos (sockets, files, hilos).
+Se implementó el flujo de apuesta individual `BET`. El mensaje del tipo `BET` enviado por el cliente tiene la estructura siguiente:
 
----
-
-## Cambios realizados
-
-Durante la realización del ejercicio 4, y en vistas de lo que se me venía encima, tome la iniciativa
-de plantear un protocolo directamente. Mi protocolo se llama *Smile Protocol*.
-
-Luego, este protocolo se implemento para el echo server, y se agregaron los mensajes `SHUTDOWN`, cuyo objetivo es notificar desde el servidor al cliente (o viceversa) del final de la comunicación.
-
----
-
-## Smile Protocol
-
-Consiste de un header y un payload.
-
-- Header: `:)<TYPE> <LEN>:(\n`. "Arranca con una sonrisa" `:)` y lo finaliza "triste" `:(`
-- Payload: variable según mensaje, pero su longitud es conocida a traves del header
-
-Estructura final: `:)<TYPE> <LEN>:(\n<payload>`.
-
-Se implementaron mensajes efectivos ya: `SHUTDOWN`, `ECHO`, `OK`, `ERROR`.
-
----
-
-### Cliente
-
-- Manejo de `SIGTERM` en `client/common/client.go`.
-- Envía `SHUTDOWN` antes de cerrar la conexión (`app_client.SendShutdown`).
-- Uso de `WriteAll`/`ReadExactly` y lectura incremental de header para evitar short write/read.
-- Logs relevantes: `action: receive_shutdown`, `action: loop_finished | result: success | client_id: X`.
-
-### Servidor
-
-- Handler de `SIGTERM` en `server/common/server.py` que marca `shutdown_requested` y cierra el listener.
-- Worker por conexión (thread) que procesa frames y atiende `SHUTDOWN` recibido.
-- En apagado envía `SHUTDOWN` a conexiones activas, cierra conexiones y espera (`join`) a los workers.
-- Manejo de payloads demasiado grandes (responde `ERROR` y descarta `LEN` bytes) y errores de protocolo.
-- Logs relevantes: `action: accept_connections`, `action: receive_message`, `action: shutdown_received`.
-
-## Flujo de apagado (implementado)
-
-1. Proceso recibe `SIGTERM`.
-2. Servidor: marca `shutdown_requested`, cierra listener, envía `SHUTDOWN` a conexiones activas, cierra conexiones y espera a que terminen los threads.
-3. Cliente: detecta la señal, envía `SHUTDOWN`, cierra socket y finaliza; registra `loop_finished`.
-
----
-
-## Manejo de errores (implementado)
-
-- Si `LEN > 8192`: servidor lanza `PayloadTooLargeError`, responde `ERROR` y descarta `LEN` bytes.
-- Header inválido o `LEN` mal formado: servidor responde `ERROR` y cierra la conexión cuando corresponde.
-- Short read/write evitados con `ReadExactly` / `WriteAll`.
-
----
-
-## Logs relevantes
-
-- Cliente:
-  - `action: receive_message | result: success | client_id: X | msg: ...`
-  - `action: receive_shutdown | result: success | client_id: X`
-  - `action: loop_finished | result: success | client_id: X`
-
-- Servidor:
-  - `action: accept_connections | result: in_progress / success | ip: ...`
-  - `action: receive_message | result: success | ip: ... | msg: ...`
-  - `action: shutdown_received | result: success | ip: ...`
-
----
-
-## Consideraciones técnicas
-
-- Límite de payload: 8192 bytes.
-- Lectura incremental de header: `ReadUntilHeaderTerminator` / `read_until_header_terminator`.
-- Configs montadas por volumen (`./server/config.ini`, `./client/config.yaml`) para evitar rebuild al cambiar parámetros.
-
----
-
-## Ejecución
-
-```bash
-make docker-compose-up
-make docker-compose-logs
-make docker-compose-down
+```text
+:)BET 102:(
+agency_id=1
+nombre=Santiago Lionel
+apellido=Lorca
+documento=30904465
+nacimiento=1999-03-17
+numero=7574
 ```
 
-Prueba rápida de echo (usa la red interna, no requiere nc en host):
+El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es OK o no el mensaje de origen:
+
+```text
+:)OK 0:(
+
+```
+
+```text
+:)ERROR 27:(
+missing_bet_field_documento
+```
+
+Resumen de la implementación realizada:
+
+- El cliente envía una apuesta serializada en texto (`key=value` por línea) usando el Smile Protocol(`TYPE=BET`).
+- El servidor parsea la apuesta, valida campos, persiste con la función `store_bets(...)` provista y responde `OK` o `ERROR`.
+- Logs esperados:
+  - Cliente: `action: apuesta_enviada | result: success | dni: ${DNI} | numero: ${NUMERO}`
+  - Servidor: `action: apuesta_almacenada | result: success | dni: ${DNI} | numero: ${NUMERO}`
+
+Archivos relevantes:
+- Cliente: [client/main.go](client/main.go) y [client/common/application/bet_operation.go](client/common/application/bet_operation.go)
+- Servidor: [server/common/application/app_server.py](server/common/application/app_server.py)
+- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta variables de apuesta por cliente)
+
+Ejecución:
+
+1. Regenerar compose con 5 agencias:
 
 ```bash
-./validar-echo-server.sh
+./generar-compose.sh docker-compose-dev.yaml 5
+```
+
+2. Reconstruir imágenes y levantar el compose:
+
+```bash
+make docker-image
+make docker-compose-up
+```
+
+3. Ver los logs y buscar las entradas `apuesta_enviada` / `apuesta_almacenada`:
+
+```bash
+make docker-compose-logs
 ```

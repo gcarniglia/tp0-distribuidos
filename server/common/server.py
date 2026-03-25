@@ -69,10 +69,16 @@ class Server:
                     self.__send_message(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))
                     _ = connection.read_exactly(exc.payload_len)
                     continue
+                except ValueError as exc:
+                    self.__send_message(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))
+                    break
                 except SmileError as exc:
                     # Escenario de error en protocolo, como por ejemplo un mensaje mal formado.
                     # Se envía un mensaje de error al cliente y se cierra la conexión
                     self.__send_message(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))
+                    break
+                except OSError as exc:
+                    logging.error(f'action: receive_message | result: fail | error: {exc}')
                     break
 
                 logging.info(
@@ -93,6 +99,7 @@ class Server:
         finally:
             with self._connections_lock:
                 self._active_connections.discard(connection)
+                self._worker_threads.discard(threading.current_thread())
             connection.close()
 
     ''' Procesa un mensaje recibido del cliente, ejecutando la lógica de negocio

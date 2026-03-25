@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/op/go-logging"
 
@@ -20,7 +19,6 @@ type ClientConfig struct {
 	ID            string
 	ServerAddress string
 	LoopAmount    int
-	LoopPeriod    time.Duration
 }
 
 // Client Entity
@@ -70,16 +68,6 @@ func (c *Client) stopIfSignaled(sigCh <-chan os.Signal, appClient *application.A
 	}
 }
 
-func (c *Client) waitOrStop(sigCh <-chan os.Signal, appClient *application.AppClient) bool {
-	select {
-	case <-sigCh:
-		c.sendShutdownAndFinish(appClient)
-		return false
-	case <-time.After(c.config.LoopPeriod):
-		return true
-	}
-}
-
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
 	sigCh := make(chan os.Signal, 1)
@@ -108,10 +96,6 @@ func (c *Client) StartClientLoop() {
 			return
 		}
 
-		// Wait a time between sending one message and the next one
-		if !c.waitOrStop(sigCh, appClient) {
-			return
-		}
 	}
 	c.sendShutdownAndFinish(appClient)
 }

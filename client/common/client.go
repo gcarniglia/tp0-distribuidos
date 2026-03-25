@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/op/go-logging"
 
@@ -27,7 +26,6 @@ type ClientConfig struct {
 	ID             string
 	ServerAddress  string
 	LoopAmount     int
-	LoopPeriod     time.Duration
 	BatchMaxAmount int
 }
 
@@ -75,16 +73,6 @@ func (c *Client) stopIfSignaled(sigCh <-chan os.Signal, appClient *application.A
 		return true
 	default:
 		return false
-	}
-}
-
-func (c *Client) waitOrStop(sigCh <-chan os.Signal, appClient *application.AppClient) bool {
-	select {
-	case <-sigCh:
-		c.sendShutdownAndFinish(appClient)
-		return false
-	case <-time.After(c.config.LoopPeriod):
-		return true
 	}
 }
 

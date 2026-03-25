@@ -1,9 +1,11 @@
 # Mac
 **.DS_Store
 
+.github/
+
 # Executables
 bin/
 
 
 # Compose generator
-compose_generator/__pycache__/
+__pycache__/

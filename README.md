@@ -60,4 +60,24 @@ make docker-compose-up
 make docker-compose-logs
 ```
 
-Nota: Aunque específicamente no se aclara, considero que el dataset.zip se encuentra ya descomprimido en `./.data/*.csv`, con cada csv de cada agencia allí. 
+4. Si se desea ver mas en conciso si, al levantar las 5 imagenes se procesaron la cantidad de lineas correcta sugiero lo siguiente:
+
+```bash
+docker exec -it server sh
+```
+
+Dentro del contenedor del servidor, ejecutar esto si se busca contar el total de lineas procesadas por el servidor:
+
+```bash
+wc -l bets.csv
+```
+
+Si se quiere ver la cantidad de lineas por cliente, se puede hacer:
+
+```bash
+grep '^1' bets.csv | wc -l
+```
+
+Donde el 1 representa al id de la agencia de lotería.
+
+Nota: Aunque específicamente no se aclara, considero que el dataset.zip se encuentra ya descomprimido en `./.data/*.csv`, con cada csv de cada agencia allí.

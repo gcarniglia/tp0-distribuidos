@@ -1,20 +1,20 @@
-# Ejercicio 5 — Apuestas (BET)
+# Ejercicio 6 — Procesamiento por lotes (BATCH)
 
 Como se planteó toda la estructura de capas de transporte/protocolo/aplicación en el punto anterior, aquí la solución es mas a nivel aplicación.
 
-Se implementó el flujo de apuesta individual `BET`. El mensaje del tipo `BET` enviado por el cliente tiene la estructura siguiente:
+Se implementó el flujo de apuestas por lotes `BATCH`. El mensaje del tipo `BATCH` enviado por el cliente tiene la estructura siguiente:
 
 ```text
-:)BET 102:(
+:)BATCH 1116:(
 agency_id=1
-nombre=Santiago Lionel
-apellido=Lorca
-documento=30904465
-nacimiento=1999-03-17
-numero=7574
+count=25
+data:
+Sebastian Alejandro,Loreto,26486922,1985-08-08,8130
+Dylan Ezequiel,Sberna,27155519,1994-01-07,6843
+...
 ```
 
-El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es OK o no el mensaje de origen:
+El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es OK o no el batch de origen:
 
 ```text
 :)OK 0:(
@@ -22,22 +22,22 @@ El mensaje enviado por el servidor tiene esta estructura, dependiendo de si es O
 ```
 
 ```text
-:)ERROR 27:(
-missing_bet_field_documento
+:)ERROR 20:(
+batch_count_mismatch
 ```
 
 Resumen de la implementación realizada:
 
-- El cliente envía una apuesta serializada en texto (`key=value` por línea) usando el Smile Protocol(`TYPE=BET`).
-- El servidor parsea la apuesta, valida campos, persiste con la función `store_bets(...)` provista y responde `OK` o `ERROR`.
+- El cliente lee apuestas desde su archivo `/.data/agency-{N}.csv`, arma lotes según `batch.maxAmount` y envía payload textual con `agency_id`, `count` y sección `data:` usando Smile Protocol (`TYPE=BATCH`).
+- El servidor parsea y valida el batch completo; si todas las apuestas son válidas persiste con `store_bets(...)` y responde `OK`; si alguna falla responde `ERROR` y no persiste parcial.
 - Logs esperados:
-  - Cliente: `action: apuesta_enviada | result: success | dni: ${DNI} | numero: ${NUMERO}`
-  - Servidor: `action: apuesta_almacenada | result: success | dni: ${DNI} | numero: ${NUMERO}`
+  - Servidor éxito: `action: apuesta_recibida | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}`
+  - Servidor error: `action: apuesta_recibida | result: fail | cantidad: ${CANTIDAD_DE_APUESTAS}`
 
 Archivos relevantes:
-- Cliente: [client/main.go](client/main.go) y [client/common/application/bet_operation.go](client/common/application/bet_operation.go)
+- Cliente: [client/main.go](client/main.go), [client/common/client.go](client/common/client.go) y [client/common/application/batch_operation.go](client/common/application/batch_operation.go)
 - Servidor: [server/common/application/app_server.py](server/common/application/app_server.py)
-- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta variables de apuesta por cliente)
+- Generador de compose: [compose_generator/compose.py](compose_generator/compose.py) (inyecta `CLI_ID` y monta `./.data/dataset/agency-N.csv` en `/.data/agency-N.csv`)
 
 Ejecución:
 
@@ -54,7 +54,7 @@ make docker-image
 make docker-compose-up
 ```
 
-3. Ver los logs y buscar las entradas `apuesta_enviada` / `apuesta_almacenada`:
+3. Ver los logs y buscar las entradas `apuesta_recibida`:
 
 ```bash
 make docker-compose-logs

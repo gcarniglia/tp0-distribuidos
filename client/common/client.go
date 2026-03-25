@@ -1,9 +1,15 @@
 package common
 
 import (
+	"encoding/csv"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,15 +24,11 @@ var log = logging.MustGetLogger("log")
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
-	Nombre        string
-	Apellido      string
-	Documento     string
-	Nacimiento    string
-	Numero        string
+	ID             string
+	ServerAddress  string
+	LoopAmount     int
+	LoopPeriod     time.Duration
+	BatchMaxAmount int
 }
 
 // Client Entity
@@ -86,15 +88,46 @@ func (c *Client) waitOrStop(sigCh <-chan os.Signal, appClient *application.AppCl
 	}
 }
 
-func (c *Client) buildBet() application.Bet {
-	return application.Bet{
-		AgencyID:   c.config.ID,
-		Nombre:     c.config.Nombre,
-		Apellido:   c.config.Apellido,
-		Documento:  c.config.Documento,
-		Nacimiento: c.config.Nacimiento,
-		Numero:     c.config.Numero,
+func (c *Client) agencyDatasetPath() string {
+	return filepath.Join(".data", fmt.Sprintf("agency-%s.csv", c.config.ID))
+}
+
+func (c *Client) loadAgencyDatasetLines() ([]string, error) {
+	file, err := os.Open(c.agencyDatasetPath())
+	if err != nil {
+		return nil, err
 	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	reader := csv.NewReader(file)
+	lines := make([]string, 0)
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if len(record) != 5 {
+			return nil, fmt.Errorf("invalid bet record format")
+		}
+		for i := range record {
+			record[i] = strings.TrimSpace(record[i])
+		}
+		lines = append(lines, strings.Join(record, ","))
+	}
+
+	return lines, nil
+}
+
+func (c *Client) batchSize() int {
+	if c.config.BatchMaxAmount <= 0 {
+		return 1
+	}
+	return c.config.BatchMaxAmount
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
@@ -118,17 +151,38 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	bet := c.buildBet()
-	if err := appClient.SendBet(bet); err != nil {
-		if errors.Is(err, application.ErrShutdown) {
-			log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
-			log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-			return
-		}
-		log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.Documento, bet.Numero, err)
+	bets, err := c.loadAgencyDatasetLines()
+	if err != nil {
+		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return
 	}
 
-	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.Documento, bet.Numero)
+	batchSize := c.batchSize()
+	for offset := 0; offset < len(bets); offset += batchSize {
+		if c.stopIfSignaled(sigCh, appClient) {
+			return
+		}
+
+		end := offset + batchSize
+		if end > len(bets) {
+			end = len(bets)
+		}
+
+		if err := appClient.SendBatch(c.config.ID, bets[offset:end]); err != nil {
+			if errors.Is(err, application.ErrShutdown) {
+				log.Infof("action: receive_shutdown | result: success | client_id: %v", c.config.ID)
+				log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+				return
+			}
+			log.Errorf(
+				"action: apuesta_enviada | result: fail | client_id: %v | batch_size: %v | error: %v",
+				c.config.ID,
+				strconv.Itoa(end-offset),
+				err,
+			)
+			return
+		}
+	}
+
 	c.sendShutdownAndFinish(appClient)
 }

@@ -1,12 +1,9 @@
-from common.application.state import ServerState
 from common.protocol.smile_message import (
     SmileMessage, SmileType
 )
 
 
 class AppServer:
-    def __init__(self, state: ServerState | None = None):
-        self._state = state or ServerState()
 
     def handle_message(self, connection, message: SmileMessage):
         if message.type == SmileType.ECHO:

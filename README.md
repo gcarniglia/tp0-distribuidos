@@ -39,7 +39,7 @@ Se implementaron mensajes efectivos ya: `SHUTDOWN`, `ECHO`, `OK`, `ERROR`.
 
 - Handler de `SIGTERM` en `server/common/server.py` que marca `shutdown_requested` y cierra el listener.
 - Worker por conexión (thread) que procesa frames y atiende `SHUTDOWN` recibido.
-- En apagado envía `SHUTDOWN` a conexiones activas, cierra conexiones y espera (`join`) a los workers.
+- En apagado envía `SHUTDOWN` a conexiones activas a los clientes, cierra conexiones y espera (`join`) a los workers.
 - Manejo de payloads demasiado grandes (responde `ERROR` y descarta `LEN` bytes) y errores de protocolo.
 - Logs relevantes: `action: accept_connections`, `action: receive_message`, `action: shutdown_received`.
 

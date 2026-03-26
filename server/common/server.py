@@ -91,7 +91,7 @@ class Server:
                     self.__safe_payload_preview(message.payload),
                 )
 
-                should_continue, message_close_reason = self.__process_message(connection, message)
+                should_continue, message_close_reason = self.__process_message(connection, message, peer_ip)
                 if not should_continue:
                     close_reason = message_close_reason
                     break
@@ -106,11 +106,11 @@ class Server:
 
     ''' Procesa un mensaje recibido del cliente, ejecutando la lógica de negocio
     y enviando una respuesta al cliente destinatario'''
-    def __process_message(self, connection, message):
+    def __process_message(self, connection, message,peer_ip):
         responses, should_continue, close_reason = self._app.handle_message(connection, message)
 
         if not should_continue and close_reason == "protocol_shutdown":
-            logging.info("action: shutdown_received | result: success | ip: %s", connection.peer_ip())
+            logging.info("action: shutdown_received | result: success | ip: %s", peer_ip())
 
         for target_connection, response_message in responses:
             self.__send_message(target_connection, response_message)

@@ -7,18 +7,24 @@ class AppServer:
 
     def handle_message(self, connection, message: SmileMessage):
         if message.type == SmileType.ECHO:
-            return self.ok(connection, message.payload)
+            return self.ok(connection, message.payload), True, None
         if message.type == SmileType.BET:
-            return []
+            return [], True, None
         if message.type == SmileType.BATCH:
-            return []
+            return [], True, None
         if message.type == SmileType.END_AGENCY:
-            return []
+            return [], True, None
         if message.type == SmileType.GET_WINNERS:
-            return []
+            return [], True, None
         if message.type == SmileType.SHUTDOWN:
-            return []
-        return [(connection, SmileMessage(SmileType.ERROR, b"unknown_message_type"))]
+            return self.shutdown(connection)
+        return [(connection, SmileMessage(SmileType.ERROR, b"unknown_message_type"))], True, None
+
+    @staticmethod
+    def shutdown(connection):
+        if connection.is_open():
+            connection.close()
+        return [], False, "protocol_shutdown"
 
     @staticmethod
     def ok(connection,payload):

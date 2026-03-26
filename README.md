@@ -28,26 +28,27 @@ Se implementaron mensajes efectivos ya: `SHUTDOWN`, `ECHO`, `OK`, `ERROR`.
 
 ---
 
-### Cliente
+### Smile Protocol aplicado al SHUTDOWN: Cliente
 
 - Manejo de `SIGTERM` en `client/common/client.go`.
-- Envía `SHUTDOWN` antes de cerrar la conexión (`app_client.SendShutdown`).
+- Envía `SHUTDOWN` unilateral antes de cerrar la conexión (`app_client.SendShutdown`), sin esperar ACK del servidor.
 - Uso de `WriteAll`/`ReadExactly` y lectura incremental de header para evitar short write/read.
 - Logs relevantes: `action: receive_shutdown`, `action: loop_finished | result: success | client_id: X`.
 
-### Servidor
+### Smile Protocol aplicado al SHUTDOWN: Servidor
 
 - Handler de `SIGTERM` en `server/common/server.py` que marca `shutdown_requested` y cierra el listener.
-- Worker por conexión (thread) que procesa frames y atiende `SHUTDOWN` recibido.
+- Worker por conexión (thread) que procesa frames y atiende `SHUTDOWN` recibido como cierre protocolar.
 - En apagado envía `SHUTDOWN` a conexiones activas a los clientes, cierra conexiones y espera (`join`) a los workers.
 - Manejo de payloads demasiado grandes (responde `ERROR` y descarta `LEN` bytes) y errores de protocolo.
-- Logs relevantes: `action: accept_connections`, `action: receive_message`, `action: shutdown_received`.
+- Si la conexión termina por EOF sin `SHUTDOWN`, se registra como cierre no protocolar.
+- Logs relevantes: `action: accept_connections`, `action: receive_message`, `action: shutdown_received`, `action: sigterm_received`, `action: close_listener`, `action: close_connection`, `action: join_worker`.
 
 ## Flujo de apagado (implementado)
 
 1. Proceso recibe `SIGTERM`.
 2. Servidor: marca `shutdown_requested`, cierra listener, envía `SHUTDOWN` a conexiones activas, cierra conexiones y espera a que terminen los threads.
-3. Cliente: detecta la señal, envía `SHUTDOWN`, cierra socket y finaliza; registra `loop_finished`.
+3. Cliente: detecta la señal, envía `SHUTDOWN` unilateral, cierra socket y finaliza; registra `loop_finished`.
 
 ---
 
@@ -64,12 +65,19 @@ Se implementaron mensajes efectivos ya: `SHUTDOWN`, `ECHO`, `OK`, `ERROR`.
 - Cliente:
   - `action: receive_message | result: success | client_id: X | msg: ...`
   - `action: receive_shutdown | result: success | client_id: X`
+  - `action: sigterm_received | result: success | client_id: X`
+  - `action: send_shutdown | result: success | mode: unilateral | client_id: X`
+  - `action: close_connection | result: success | client_id: X`
   - `action: loop_finished | result: success | client_id: X`
 
 - Servidor:
   - `action: accept_connections | result: in_progress / success | ip: ...`
   - `action: receive_message | result: success | ip: ... | msg: ...`
   - `action: shutdown_received | result: success | ip: ...`
+  - `action: sigterm_received | result: success`
+  - `action: close_listener | result: in_progress / success`
+  - `action: close_connection | result: in_progress / success | ip: ... | reason: ...`
+  - `action: join_worker | result: in_progress / success / timeout`
 
 ---
 

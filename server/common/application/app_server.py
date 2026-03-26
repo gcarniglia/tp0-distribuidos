@@ -13,7 +13,7 @@ class AppServer:
 
     def handle_message(self, connection, message: SmileMessage):
         if message.type == SmileType.ECHO:
-            return self.ok(connection, message.payload)
+            return self.ok(connection, message.payload), True, None
         if message.type == SmileType.BET:
             try:
                 bet = self._decode_bet_payload(message.payload)
@@ -24,9 +24,9 @@ class AppServer:
                     bet.document,
                     bet.number,
                 )
-                return self.ok(connection, b"")
+                return self.ok(connection, b""), True, None
             except ValueError as exc:
-                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))]
+                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))], True, None
         if message.type == SmileType.BATCH:
             bet_count = self._extract_batch_count(message.payload)
             try:
@@ -37,20 +37,26 @@ class AppServer:
                     "action: apuesta_recibida | result: success | cantidad: %s",
                     len(bets),
                 )
-                return self.ok(connection, b"")
+                return self.ok(connection, b""), True, None
             except ValueError as exc:
                 logging.info(
                     "action: apuesta_recibida | result: fail | cantidad: %s",
                     bet_count,
                 )
-                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))]
+                return [(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))], True, None
         if message.type == SmileType.END_AGENCY:
-            return []
+            return [], True, None
         if message.type == SmileType.GET_WINNERS:
-            return []
+            return [], True, None
         if message.type == SmileType.SHUTDOWN:
-            return []
-        return [(connection, SmileMessage(SmileType.ERROR, b"unknown_message_type"))]
+            return self.shutdown(connection)
+        return [(connection, SmileMessage(SmileType.ERROR, b"unknown_message_type"))], True, None
+
+    @staticmethod
+    def shutdown(connection):
+        if connection.is_open():
+            connection.close()
+        return [], False, "protocol_shutdown"
 
     @staticmethod
     def ok(connection,payload):

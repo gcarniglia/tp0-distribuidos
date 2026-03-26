@@ -4,6 +4,7 @@ import socket
 class TcpConnection:
     def __init__(self, sock: socket.socket):
         self._socket = sock
+        self._closed = False
 
     '''Envía todos los bytes del mensaje a través de la conexión TCP'''
     def send_all(self, data: bytes) -> None:
@@ -42,7 +43,18 @@ class TcpConnection:
 
     ''' Cierra la conexión TCP con el cliente'''
     def close(self) -> None:
+        if self._closed:
+            return
         self._socket.close()
+        self._closed = True
+
+    def is_open(self) -> bool:
+        if self._closed:
+            return False
+        try:
+            return self._socket.fileno() != -1
+        except OSError:
+            return False
 
     def settimeout(self, value: float) -> None:
         self._socket.settimeout(value)

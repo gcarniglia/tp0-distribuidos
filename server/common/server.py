@@ -34,8 +34,11 @@ class Server:
     def _on_sigterm(self, signum, frame):
         _ = signum
         _ = frame
+        logging.info("action: sigterm_received | result: success")
         self._shutdown_requested.set()
+        logging.info("action: close_listener | result: in_progress")
         self._tcp_server.close()
+        logging.info("action: close_listener | result: success")
 
     ''' Crea un nuevo hilo para manejar la conexión del cliente 
     y lo agrega a la lista de conexiones activas '''
@@ -51,6 +54,8 @@ class Server:
     ''' Atiende la conexión del cliente, recibiendo mensajes y enviando respuestas 
     hasta que el cliente se desconecte o se reciba un mensaje de shutdown '''
     def __handle_client_connection(self, connection):
+        close_reason = "unknown"
+        peer_ip = connection.peer_ip()
         try:
             while True:
                 try:
@@ -59,6 +64,11 @@ class Server:
                 except EOFError:
                     # Cliente cerró la conexión de forma inesperada, 
                     # se termina el loop de atención de esta conexión
+                    close_reason = "eof_unexpected"
+                    logging.warning(
+                        "action: connection_closed | result: non_protocol_eof | ip: %s",
+                        peer_ip,
+                    )
                     break
                 except PayloadTooLargeError as exc:
                     # escenario cuando se envía un payload mayor a 8KB
@@ -70,6 +80,7 @@ class Server:
                 except SmileError as exc:
                     # Escenario de error en protocolo, como por ejemplo un mensaje mal formado.
                     # Se envía un mensaje de error al cliente y se cierra la conexión
+                    close_reason = "protocol_error"
                     self.__send_message(connection, SmileMessage(SmileType.ERROR, str(exc).encode("utf-8")))
                     break
 
@@ -79,26 +90,31 @@ class Server:
                     self.__safe_payload_preview(message.payload),
                 )
                 
-                # Escenario de cierre de conexión ordenado por parte del cliente, 
-                # se termina el loop de atención de esta conexión
-                if message.type == SmileType.SHUTDOWN:
-                    logging.info("action: shutdown_received | result: success | ip: %s", connection.peer_ip())
+                should_continue, message_close_reason = self.__process_message(connection, message)
+                if not should_continue:
+                    close_reason = message_close_reason
                     break
-                
-                self.__process_message(connection, message)
 
         # Gracefull shutdown de la conexión con el cliente
         finally:
             with self._connections_lock:
                 self._active_connections.discard(connection)
+            logging.info("action: close_connection | result: in_progress | ip: %s | reason: %s", peer_ip, close_reason)
             connection.close()
+            logging.info("action: close_connection | result: success | ip: %s | reason: %s", peer_ip, close_reason)
 
     ''' Procesa un mensaje recibido del cliente, ejecutando la lógica de negocio
     y enviando una respuesta al cliente destinatario'''
     def __process_message(self, connection, message):
-        responses = self._app.handle_message(connection, message)
+        responses, should_continue, close_reason = self._app.handle_message(connection, message)
+
+        if not should_continue and close_reason == "protocol_shutdown":
+            logging.info("action: shutdown_received | result: success | ip: %s", connection.peer_ip())
+
         for target_connection, response_message in responses:
             self.__send_message(target_connection, response_message)
+
+        return should_continue, close_reason
 
     '''Acepta una nueva conexión TCP entrante'''
     def __accept_new_connection(self):
@@ -123,6 +139,7 @@ class Server:
     '''Realiza un apagado ordenado del servidor completo, 
     cerrando conexiones activas y esperando a que los hilos de trabajo terminen'''
     def __shutdown(self):
+        logging.info("action: shutdown | result: in_progress")
         self._shutdown_requested.set()
 
         with self._connections_lock:
@@ -130,13 +147,27 @@ class Server:
             worker_threads = list(self._worker_threads)
 
         for connection in active_connections:
+            connection_ip = connection.peer_ip()
+            logging.info("action: send_shutdown | result: in_progress | ip: %s", connection_ip)
             self.__send_message(connection, SmileMessage(SmileType.SHUTDOWN, b""))
+            logging.info("action: send_shutdown | result: success | ip: %s", connection_ip)
+            logging.info("action: close_connection | result: in_progress | ip: %s | reason: server_shutdown", connection_ip)
             connection.close()
+            logging.info("action: close_connection | result: success | ip: %s | reason: server_shutdown", connection_ip)
 
+        logging.info("action: close_listener | result: in_progress")
         self._tcp_server.close()
+        logging.info("action: close_listener | result: success")
 
         for worker in worker_threads:
+            logging.info("action: join_worker | result: in_progress")
             worker.join(timeout=2.0)
+            if worker.is_alive():
+                logging.warning("action: join_worker | result: timeout")
+            else:
+                logging.info("action: join_worker | result: success")
+
+        logging.info("action: shutdown | result: success")
 
     
     '''Representacion segura del payload para logs'''
